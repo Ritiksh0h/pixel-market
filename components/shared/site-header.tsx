@@ -1,0 +1,351 @@
+"use client";
+
+import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
+import { useTheme } from "next-themes";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuGroup,
+} from "@/components/ui/dropdown-menu";
+import {
+  Search,
+  Upload,
+  Bell,
+  Moon,
+  Sun,
+  User,
+  Settings,
+  LogOut,
+  BookmarkIcon,
+  Clock,
+  TrendingUp,
+  Camera,
+  Check,
+  UserPlus,
+  ShoppingCart,
+  DollarSign,
+  MessageSquare,
+  FileImage,
+  Film,
+  FolderUp,
+  UploadCloud,
+} from "lucide-react";
+
+// ═══════════════════════════════════════
+// SITE HEADER (matches original layout)
+// ═══════════════════════════════════════
+export function SiteHeader() {
+  return (
+    <header className="sticky top-0 z-50 w-full border-b bg-background">
+      <div className="container flex h-16 items-center">
+        <div className="flex items-center space-x-4">
+          <Link href="/dashboard" className="flex items-center space-x-2">
+            <span className="font-bold text-xl">PixelMarket</span>
+          </Link>
+        </div>
+        <div className="flex-1 mx-4">
+          <SearchDropdown />
+        </div>
+        <div className="flex items-center space-x-4">
+          <UploadDropdown />
+          <NotificationDropdown />
+          <UserDropdown />
+        </div>
+      </div>
+    </header>
+  );
+}
+
+// ═══════════════════════════════════════
+// SEARCH DROPDOWN (exact original design)
+// ═══════════════════════════════════════
+function SearchDropdown() {
+  const router = useRouter();
+  const [isFocused, setIsFocused] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const recentSearches = ["landscape photography", "portrait", "black and white"];
+  const popularCategories = [
+    { name: "Nature", count: "25K+ photos" },
+    { name: "Architecture", count: "18K+ photos" },
+    { name: "People", count: "32K+ photos" },
+  ];
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current && !dropdownRef.current.contains(event.target as Node) &&
+        inputRef.current && !inputRef.current.contains(event.target as Node)
+      ) {
+        setIsFocused(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleSearch = (term: string) => {
+    setSearchValue(term);
+    setIsFocused(false);
+    router.push(`/search?q=${encodeURIComponent(term)}`);
+  };
+
+  return (
+    <div className="relative flex-1">
+      <div className="relative">
+        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+        <input
+          ref={inputRef}
+          type="search"
+          placeholder="Search photos, photographers, or categories..."
+          className="w-full rounded-md border border-input bg-background pl-10 pr-4 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          value={searchValue}
+          onChange={(e) => setSearchValue(e.target.value)}
+          onFocus={() => setIsFocused(true)}
+          onKeyDown={(e) => { if (e.key === "Enter" && searchValue.trim()) handleSearch(searchValue.trim()); }}
+        />
+      </div>
+
+      {isFocused && (
+        <div ref={dropdownRef} className="absolute top-full left-0 right-0 mt-1 rounded-md border bg-background shadow-lg z-50">
+          <div className="p-3">
+            <h3 className="text-sm font-medium mb-2 flex items-center">
+              <Clock className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+              Recent Searches
+            </h3>
+            <div className="space-y-2">
+              {recentSearches.map((term, i) => (
+                <div key={i} className="flex items-center px-2 py-1.5 text-sm rounded-md hover:bg-muted cursor-pointer" onClick={() => handleSearch(term)}>
+                  <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                  {term}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="border-t" />
+          <div className="p-3">
+            <h3 className="text-sm font-medium mb-2 flex items-center">
+              <TrendingUp className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+              Popular Categories
+            </h3>
+            <div className="grid grid-cols-1 gap-2">
+              {popularCategories.map((cat, i) => (
+                <div key={i} className="flex items-center justify-between px-2 py-1.5 text-sm rounded-md hover:bg-muted cursor-pointer" onClick={() => handleSearch(cat.name)}>
+                  <div className="flex items-center">
+                    <Camera className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                    {cat.name}
+                  </div>
+                  <span className="text-xs text-muted-foreground">{cat.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          {searchValue && (
+            <>
+              <div className="border-t" />
+              <div className="p-3 text-center text-sm text-primary font-medium cursor-pointer hover:bg-muted" onClick={() => handleSearch(searchValue)}>
+                Search for &quot;{searchValue}&quot;
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════
+// UPLOAD DROPDOWN (exact original design)
+// ═══════════════════════════════════════
+function UploadDropdown() {
+  const router = useRouter();
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button className="hidden md:flex" variant="outline">
+          <Upload className="h-4 w-4 mr-2" />
+          Upload
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-64" align="end" forceMount>
+        <DropdownMenuLabel>Upload Content</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem onClick={() => { router.push("/upload"); setIsOpen(false); }} className="py-3 cursor-pointer">
+            <FileImage className="h-4 w-4 mr-3 text-blue-500" />
+            <div className="flex flex-col">
+              <span className="font-medium">Upload Photo</span>
+              <span className="text-xs text-muted-foreground">JPG, PNG, WebP (max 50MB)</span>
+            </div>
+          </DropdownMenuItem>
+          <DropdownMenuItem className="py-3 cursor-pointer">
+            <Film className="h-4 w-4 mr-3 text-red-500" />
+            <div className="flex flex-col">
+              <span className="font-medium">Upload Video</span>
+              <span className="text-xs text-muted-foreground">MP4, WebM (max 1GB)</span>
+            </div>
+          </DropdownMenuItem>
+          <DropdownMenuItem className="py-3 cursor-pointer">
+            <FolderUp className="h-4 w-4 mr-3 text-amber-500" />
+            <div className="flex flex-col">
+              <span className="font-medium">Upload Collection</span>
+              <span className="text-xs text-muted-foreground">Multiple files at once</span>
+            </div>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="py-3 cursor-pointer">
+          <UploadCloud className="h-4 w-4 mr-3 text-purple-500" />
+          <div className="flex flex-col">
+            <span className="font-medium">Bulk Upload</span>
+            <span className="text-xs text-muted-foreground">Upload multiple files with metadata</span>
+          </div>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+// ═══════════════════════════════════════
+// NOTIFICATION DROPDOWN (exact original design)
+// ═══════════════════════════════════════
+type NotificationType = "follow" | "standard-license" | "extended-license" | "rent" | "contact";
+
+function NotificationDropdown() {
+  const [notifications, setNotifications] = useState([
+    { id: "1", type: "follow" as NotificationType, message: "Alex Johnson started following you", time: "5 minutes ago", read: false },
+    { id: "6", type: "contact" as NotificationType, message: "David Miller sent you a message", time: "30 minutes ago", read: false },
+    { id: "2", type: "standard-license" as NotificationType, message: "Sarah purchased your image with Standard License ($29.99)", time: "2 hours ago", read: false },
+    { id: "3", type: "extended-license" as NotificationType, message: "Creative Studios purchased Extended License ($99.99)", time: "1 day ago", read: false },
+    { id: "4", type: "rent" as NotificationType, message: "Michael started a monthly subscription ($9.99/mo)", time: "3 days ago", read: true },
+    { id: "5", type: "follow" as NotificationType, message: "Emma Wilson started following you", time: "1 week ago", read: true },
+  ]);
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+  const markAllAsRead = () => setNotifications(notifications.map((n) => ({ ...n, read: true })));
+
+  const getIcon = (type: NotificationType) => {
+    switch (type) {
+      case "contact": return <MessageSquare className="h-4 w-4 text-indigo-500" />;
+      case "follow": return <UserPlus className="h-4 w-4 text-blue-500" />;
+      case "standard-license": return <ShoppingCart className="h-4 w-4 text-green-500" />;
+      case "extended-license": return <ShoppingCart className="h-4 w-4 text-purple-500" />;
+      case "rent": return <DollarSign className="h-4 w-4 text-amber-500" />;
+    }
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative">
+          <Bell className="h-5 w-5" />
+          {unreadCount > 0 && (
+            <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-red-500" variant="destructive">
+              {unreadCount}
+            </Badge>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-80" align="end" forceMount>
+        <DropdownMenuLabel className="flex justify-between items-center">
+          <span>Notifications</span>
+          {unreadCount > 0 && (
+            <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-muted-foreground" onClick={markAllAsRead}>
+              <Check className="mr-1 h-3 w-3" />
+              Mark all as read
+            </Button>
+          )}
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <div className="max-h-[300px] overflow-y-auto">
+          <DropdownMenuGroup>
+            {notifications.map((n) => (
+              <DropdownMenuItem key={n.id} className={`flex items-start p-3 ${!n.read ? "bg-muted/50" : ""}`}>
+                <div className="mr-2 mt-0.5">{getIcon(n.type)}</div>
+                <div className="flex flex-col space-y-1 flex-1">
+                  <p className="text-sm">{n.message}</p>
+                  <p className="text-xs text-muted-foreground">{n.time}</p>
+                </div>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuGroup>
+        </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="justify-center text-center">View all notifications</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+// ═══════════════════════════════════════
+// USER DROPDOWN (exact original with theme toggle)
+// ═══════════════════════════════════════
+function UserDropdown() {
+  const { data: session } = useSession();
+  const { theme, setTheme } = useTheme();
+  const router = useRouter();
+
+  if (!session?.user) {
+    return <Button size="sm" asChild><Link href="/login">Sign in</Link></Button>;
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative">
+          <User className="h-5 w-5" />
+          <span className="sr-only">User menu</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56" align="end" forceMount>
+        <DropdownMenuLabel className="font-normal">
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium leading-none">{session.user.name}</p>
+            <p className="text-xs leading-none text-muted-foreground">{session.user.email}</p>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem onClick={() => {
+            const username = (session.user as any).username;
+            if (username) router.push(`/photographers/${username}`);
+            else router.push("/settings");
+          }}>
+            <User className="mr-2 h-4 w-4" /><span>Profile</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => router.push("/collections")}>
+            <BookmarkIcon className="mr-2 h-4 w-4" /><span>Bookmarks</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => router.push("/settings")}>
+            <Settings className="mr-2 h-4 w-4" /><span>Settings</span>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => setTheme(theme === "light" ? "dark" : "light")}>
+          {theme === "light" ? (
+            <><Moon className="mr-2 h-4 w-4" /><span>Dark mode</span></>
+          ) : (
+            <><Sun className="mr-2 h-4 w-4" /><span>Light mode</span></>
+          )}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/" })}>
+          <LogOut className="mr-2 h-4 w-4" /><span>Log out</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
