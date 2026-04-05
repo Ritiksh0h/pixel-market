@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,14 @@ import { resetPasswordAction } from "@/lib/actions/auth";
 import { CheckCircle2, Eye, EyeOff } from "lucide-react";
 
 export default function ResetPasswordPage() {
+  return (
+    <Suspense>
+      <ResetPasswordContent />
+    </Suspense>
+  );
+}
+
+function ResetPasswordContent() {
   const params = useSearchParams();
   const token = params.get("token");
   const [loading, setLoading] = useState(false);
