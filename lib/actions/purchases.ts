@@ -13,6 +13,7 @@ import { eq, and, desc, sql } from "drizzle-orm";
 import Stripe from "stripe";
 import { calculateFees } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
+import { rateLimit } from "@/lib/rate-limit";
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -149,6 +150,8 @@ export async function fulfillPurchase(stripeSessionId: string) {
 export async function placeBidAction(photoId: string, amount: number) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Not authenticated" };
+  const rl = rateLimit(session.user.id, "bid");
+  if (rl) return rl;
 
   const [photo] = await db
     .select()

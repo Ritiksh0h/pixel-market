@@ -16,19 +16,24 @@ import { uploadFile, BUCKETS, deleteFile } from "@/lib/supabase";
 import { slugify, calculateFees } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { rateLimit } from "@/lib/rate-limit";
 
 // ── Upload photo ──
 export async function uploadPhotoAction(formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Not authenticated" };
+  const rl = rateLimit(session.user.id, "upload");
+  if (rl) return rl;
 
   const file = formData.get("file") as File;
   if (!file) return { error: "No file provided" };
 
   // Validate file type and size
-  const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
-  if (!allowedTypes.includes(file.type)) {
-    return { error: "Only JPG, PNG, and WebP files are allowed" };
+  const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+  const allowedExtensions = [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"];
+  const ext = file.name.split(".").pop()?.toLowerCase() || "";
+  if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(`.${ext}`)) {
+    return { error: "Only JPG, PNG, WebP, and HEIC files are allowed" };
   }
   if (file.size > 50 * 1024 * 1024) {
     return { error: "File size must be under 50MB" };
@@ -55,20 +60,24 @@ export async function uploadPhotoAction(formData: FormData) {
     // Read file as buffer
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Generate unique path
-    const ext = file.name.split(".").pop() || "jpg";
+    // ── Sharp pipeline: thumbnail, watermark, EXIF, dimensions ──
+    const { processImage } = await import("@/lib/image-processing");
+    const processed = await processImage(buffer);
+
+    // Generate unique paths
     const fileSlug = slugify(title) + "-" + Date.now();
-    const storagePath = `${session.user.id}/${fileSlug}.${ext}`;
-    const thumbPath = `${session.user.id}/${fileSlug}-thumb.${ext}`;
+    const storagePath = `${session.user.id}/${fileSlug}.jpg`;
+    const thumbPath = `${session.user.id}/${fileSlug}-thumb.jpg`;
+    const watermarkPath = `${session.user.id}/${fileSlug}-wm.jpg`;
 
-    // Upload original
-    const originalUrl = await uploadFile(BUCKETS.PHOTOS, storagePath, buffer, file.type);
+    // Upload all three versions in parallel
+    const [originalUrl, thumbnailUrl, watermarkedUrl] = await Promise.all([
+      uploadFile(BUCKETS.PHOTOS, storagePath, buffer, file.type),
+      uploadFile(BUCKETS.THUMBNAILS, thumbPath, processed.thumbnail, "image/jpeg"),
+      uploadFile(BUCKETS.WATERMARKED, watermarkPath, processed.watermarked, "image/jpeg"),
+    ]);
 
-    // For thumbnails, in production you'd use Sharp to resize.
-    // For now, use the same image (Sharp resize can be added).
-    const thumbnailUrl = await uploadFile(BUCKETS.THUMBNAILS, thumbPath, buffer, file.type);
-
-    // Insert photo record
+    // Insert photo record with real dimensions and EXIF
     const [photo] = await db
       .insert(photos)
       .values({
@@ -76,12 +85,19 @@ export async function uploadPhotoAction(formData: FormData) {
         description,
         slug: fileSlug,
         originalUrl,
-        watermarkedUrl: originalUrl, // TODO: generate watermarked version
+        watermarkedUrl,
         thumbnailUrl,
-        width: 0, // TODO: extract from EXIF with Sharp
-        height: 0,
+        width: processed.width,
+        height: processed.height,
         fileSize: file.size,
         mimeType: file.type,
+        camera: processed.exif.camera,
+        lens: processed.exif.lens,
+        aperture: processed.exif.aperture,
+        shutterSpeed: processed.exif.shutterSpeed,
+        iso: processed.exif.iso,
+        focalLength: processed.exif.focalLength,
+        dateTaken: processed.exif.dateTaken,
         userId: session.user.id,
         categoryId: categoryId || null,
         locationTaken,
@@ -149,6 +165,8 @@ export async function uploadPhotoAction(formData: FormData) {
 export async function toggleLikeAction(photoId: string) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Not authenticated" };
+  const rl = rateLimit(session.user.id, "like");
+  if (rl) return rl;
 
   const [existing] = await db
     .select()
@@ -198,6 +216,8 @@ export async function toggleLikeAction(photoId: string) {
 export async function addCommentAction(formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Not authenticated" };
+  const rl = rateLimit(session.user.id, "comment");
+  if (rl) return rl;
 
   const photoId = formData.get("photoId") as string;
   const text = (formData.get("text") as string)?.trim();
@@ -360,12 +380,16 @@ export async function deletePhotoAction(photoId: string) {
 
   if (!photo) return { error: "Photo not found or not authorized" };
 
-  // Delete from storage
+  // Delete all versions from storage
   try {
-    const originalPath = photo.originalUrl.split("/").slice(-2).join("/");
-    const thumbPath = photo.thumbnailUrl.split("/").slice(-2).join("/");
-    await deleteFile(BUCKETS.PHOTOS, originalPath);
-    await deleteFile(BUCKETS.THUMBNAILS, thumbPath);
+    const extractPath = (url: string) => url.split("/").slice(-2).join("/");
+    await Promise.allSettled([
+      deleteFile(BUCKETS.PHOTOS, extractPath(photo.originalUrl)),
+      deleteFile(BUCKETS.THUMBNAILS, extractPath(photo.thumbnailUrl)),
+      photo.watermarkedUrl
+        ? deleteFile(BUCKETS.WATERMARKED, extractPath(photo.watermarkedUrl))
+        : Promise.resolve(),
+    ]);
   } catch (err) {
     console.error("Failed to delete files:", err);
   }

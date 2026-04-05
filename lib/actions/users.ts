@@ -6,12 +6,15 @@ import { auth } from "@/lib/auth";
 import { eq, and, desc, sql, count, ilike } from "drizzle-orm";
 import { uploadFile, BUCKETS } from "@/lib/supabase";
 import { revalidatePath } from "next/cache";
+import { rateLimit } from "@/lib/rate-limit";
 
 // ── Toggle follow ──
 export async function toggleFollowAction(targetUserId: string) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Not authenticated" };
   if (session.user.id === targetUserId) return { error: "Cannot follow yourself" };
+  const rl = rateLimit(session.user.id, "follow");
+  if (rl) return rl;
 
   const [existing] = await db
     .select()
