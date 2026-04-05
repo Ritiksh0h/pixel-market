@@ -1,5 +1,3 @@
-export { Avatar, AvatarImage, AvatarFallback } from "./avatar-primitive";
-export { Badge, badgeVariants } from "./badge-primitive";
-export { Skeleton } from "./skeleton-primitive";
-export { Label } from "./label-primitive";
-export { Separator } from "./separator-primitive";
+export { Avatar, AvatarImage, AvatarFallback } from "./avatar";
+export { Badge, badgeVariants } from "./badge";
+export { Skeleton, Label, Separator } from "./skeleton-label-separator";
