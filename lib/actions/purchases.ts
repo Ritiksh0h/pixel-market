@@ -14,9 +14,11 @@ import Stripe from "stripe";
 import { calculateFees } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-12-18.acacia" as any,
-});
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: "2024-12-18.acacia" as any,
+  });
+}
 
 // ── Create checkout session ──
 export async function createCheckoutAction(
@@ -51,7 +53,7 @@ export async function createCheckoutAction(
     : license.price;
 
   try {
-    const stripeSession = await stripe.checkout.sessions.create({
+    const stripeSession = await getStripe().checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [
         {
@@ -89,7 +91,7 @@ export async function createCheckoutAction(
 
 // ── Fulfill purchase (called from webhook) ──
 export async function fulfillPurchase(stripeSessionId: string) {
-  const stripeSession = await stripe.checkout.sessions.retrieve(stripeSessionId);
+  const stripeSession = await getStripe().checkout.sessions.retrieve(stripeSessionId);
 
   if (stripeSession.payment_status !== "paid") return;
 
