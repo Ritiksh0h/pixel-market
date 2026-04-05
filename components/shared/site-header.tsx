@@ -38,7 +38,11 @@ import {
   Film,
   FolderUp,
   UploadCloud,
+  Heart,
+  Gavel,
 } from "lucide-react";
+import { getNotifications, markNotificationsReadAction } from "@/lib/actions/users";
+import { timeAgo } from "@/lib/utils";
 
 // ═══════════════════════════════════════
 // SITE HEADER (matches original layout)
@@ -220,41 +224,62 @@ function UploadDropdown() {
 }
 
 // ═══════════════════════════════════════
-// NOTIFICATION DROPDOWN (exact original design)
+// NOTIFICATION DROPDOWN (real DB data)
 // ═══════════════════════════════════════
-type NotificationType = "follow" | "standard-license" | "extended-license" | "rent" | "contact";
+type DBNotification = {
+  id: string;
+  type: string;
+  message: string;
+  isRead: boolean;
+  createdAt: Date;
+  actor: { id: string; name: string | null; username: string | null; image: string | null } | null;
+};
 
 function NotificationDropdown() {
-  const [notifications, setNotifications] = useState([
-    { id: "1", type: "follow" as NotificationType, message: "Alex Johnson started following you", time: "5 minutes ago", read: false },
-    { id: "6", type: "contact" as NotificationType, message: "David Miller sent you a message", time: "30 minutes ago", read: false },
-    { id: "2", type: "standard-license" as NotificationType, message: "Sarah purchased your image with Standard License ($29.99)", time: "2 hours ago", read: false },
-    { id: "3", type: "extended-license" as NotificationType, message: "Creative Studios purchased Extended License ($99.99)", time: "1 day ago", read: false },
-    { id: "4", type: "rent" as NotificationType, message: "Michael started a monthly subscription ($9.99/mo)", time: "3 days ago", read: true },
-    { id: "5", type: "follow" as NotificationType, message: "Emma Wilson started following you", time: "1 week ago", read: true },
-  ]);
+  const { data: session } = useSession();
+  const [notifications, setNotifications] = useState<DBNotification[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [open, setOpen] = useState(false);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
-  const markAllAsRead = () => setNotifications(notifications.map((n) => ({ ...n, read: true })));
+  // Fetch when dropdown opens
+  useEffect(() => {
+    if (open && !loaded && session?.user) {
+      getNotifications().then((data) => {
+        setNotifications(data as DBNotification[]);
+        setLoaded(true);
+      });
+    }
+  }, [open, loaded, session]);
 
-  const getIcon = (type: NotificationType) => {
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  const markAllAsRead = async () => {
+    setNotifications(notifications.map((n) => ({ ...n, isRead: true })));
+    await markNotificationsReadAction();
+  };
+
+  const getIcon = (type: string) => {
     switch (type) {
-      case "contact": return <MessageSquare className="h-4 w-4 text-indigo-500" />;
       case "follow": return <UserPlus className="h-4 w-4 text-blue-500" />;
-      case "standard-license": return <ShoppingCart className="h-4 w-4 text-green-500" />;
-      case "extended-license": return <ShoppingCart className="h-4 w-4 text-purple-500" />;
+      case "like": return <Heart className="h-4 w-4 text-red-500" />;
+      case "comment": return <MessageSquare className="h-4 w-4 text-indigo-500" />;
+      case "purchase": return <ShoppingCart className="h-4 w-4 text-green-500" />;
       case "rent": return <DollarSign className="h-4 w-4 text-amber-500" />;
+      case "auction_bid": return <Gavel className="h-4 w-4 text-purple-500" />;
+      case "auction_won": return <ShoppingCart className="h-4 w-4 text-emerald-500" />;
+      case "message": return <MessageSquare className="h-4 w-4 text-blue-500" />;
+      default: return <Bell className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-red-500" variant="destructive">
-              {unreadCount}
+              {unreadCount > 9 ? "9+" : unreadCount}
             </Badge>
           )}
         </Button>
@@ -271,20 +296,32 @@ function NotificationDropdown() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <div className="max-h-[300px] overflow-y-auto">
-          <DropdownMenuGroup>
-            {notifications.map((n) => (
-              <DropdownMenuItem key={n.id} className={`flex items-start p-3 ${!n.read ? "bg-muted/50" : ""}`}>
-                <div className="mr-2 mt-0.5">{getIcon(n.type)}</div>
-                <div className="flex flex-col space-y-1 flex-1">
-                  <p className="text-sm">{n.message}</p>
-                  <p className="text-xs text-muted-foreground">{n.time}</p>
-                </div>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuGroup>
+          {!loaded ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="h-5 w-5 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" />
+            </div>
+          ) : notifications.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              No notifications yet
+            </div>
+          ) : (
+            <DropdownMenuGroup>
+              {notifications.map((n) => (
+                <DropdownMenuItem key={n.id} className={`flex items-start p-3 ${!n.isRead ? "bg-muted/50" : ""}`}>
+                  <div className="mr-2 mt-0.5">{getIcon(n.type)}</div>
+                  <div className="flex flex-col space-y-1 flex-1">
+                    <p className="text-sm">{n.message}</p>
+                    <p className="text-xs text-muted-foreground">{timeAgo(new Date(n.createdAt))}</p>
+                  </div>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+          )}
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="justify-center text-center">View all notifications</DropdownMenuItem>
+        <DropdownMenuItem className="justify-center text-center text-sm">
+          {notifications.length > 0 ? "View all notifications" : "You're all caught up"}
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
