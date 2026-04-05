@@ -18,11 +18,15 @@ export default function UploadPage() {
 
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  const handleFile = useCallback((f: File) => {
-    if (!["image/jpeg", "image/png", "image/webp"].includes(f.type)) {
-      toast.error("Only JPG, PNG, and WebP files are allowed");
+  const isHeic = (f: File) =>
+    f.type === "image/heic" || f.type === "image/heif" || /\.(heic|heif)$/i.test(f.name);
+
+  const handleFile = useCallback(async (f: File) => {
+    if (!["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"].includes(f.type) && !f.name.match(/\.(jpe?g|png|webp|heic|heif)$/i)) {
+      toast.error("Only JPG, PNG, WebP, and HEIC files are allowed");
       return;
     }
     if (f.size > 50 * 1024 * 1024) {
@@ -30,7 +34,22 @@ export default function UploadPage() {
       return;
     }
     setFile(f);
-    setPreview(URL.createObjectURL(f));
+
+    // HEIC files can't be previewed in Chrome — convert to JPEG for preview
+    if (isHeic(f)) {
+      setPreviewLoading(true);
+      try {
+        const heic2any = (await import("heic2any")).default;
+        const blob = await heic2any({ blob: f, toType: "image/jpeg", quality: 0.8 }) as Blob;
+        setPreview(URL.createObjectURL(blob));
+      } catch {
+        // HEIC conversion failed — show filename fallback, upload still works
+        setPreview(null);
+      }
+      setPreviewLoading(false);
+    } else {
+      setPreview(URL.createObjectURL(f));
+    }
   }, []);
 
   function handleDrop(e: React.DragEvent) {
@@ -66,7 +85,7 @@ export default function UploadPage() {
 
             {/* Drop zone */}
             <div className="border rounded-lg overflow-hidden mb-8">
-              {!preview ? (
+              {!file ? (
                 <div
                   className={`bg-muted p-8 flex flex-col items-center justify-center text-center cursor-pointer ${
                     isDragging ? "ring-2 ring-ring" : ""
@@ -79,7 +98,7 @@ export default function UploadPage() {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
                     className="hidden"
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
                   />
@@ -87,12 +106,35 @@ export default function UploadPage() {
                     <Camera className="h-8 w-8 text-muted-foreground" />
                   </div>
                   <h3 className="text-lg font-medium mb-2">Drag & Drop your photo here</h3>
-                  <p className="text-sm text-muted-foreground mb-4">Supports JPG, PNG files up to 50MB</p>
+                  <p className="text-sm text-muted-foreground mb-4">Supports JPG, PNG, WebP, HEIC files up to 50MB</p>
                   <Button type="button">Browse Files</Button>
                 </div>
-              ) : (
+              ) : previewLoading ? (
+                <div className="bg-muted p-8 flex flex-col items-center justify-center text-center min-h-[300px]">
+                  <div className="h-8 w-8 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin mb-4" />
+                  <p className="text-sm text-muted-foreground">Converting HEIC preview...</p>
+                </div>
+              ) : preview ? (
                 <div className="relative bg-muted">
                   <Image src={preview} alt="Preview" width={800} height={500} className="w-full h-auto max-h-[400px] object-contain" />
+                  <button
+                    type="button"
+                    onClick={() => { setFile(null); setPreview(null); }}
+                    className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                  <div className="absolute bottom-3 left-3 text-xs text-white/80 bg-black/50 rounded px-2 py-1">
+                    {file.name} ({(file.size / 1024 / 1024).toFixed(1)} MB)
+                  </div>
+                </div>
+              ) : (
+                <div className="relative bg-muted p-8 flex flex-col items-center justify-center text-center min-h-[300px]">
+                  <Camera className="h-10 w-10 text-muted-foreground mb-3" />
+                  <p className="text-sm font-medium">{file.name}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {(file.size / 1024 / 1024).toFixed(1)} MB — Preview not available
+                  </p>
                   <button
                     type="button"
                     onClick={() => { setFile(null); setPreview(null); }}

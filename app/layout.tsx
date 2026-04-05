@@ -22,7 +22,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={azeret.className}>
+      <body className={azeret.className} suppressHydrationWarning>
         <Providers>
           {children}
           <Toaster />
