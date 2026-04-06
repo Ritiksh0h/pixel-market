@@ -1,195 +1,257 @@
-# PixelMarket — Photography Marketplace
+# PixelMarket
 
-A full-stack photography marketplace built with Next.js 14, Drizzle ORM, Auth.js, Supabase, Stripe, GSAP, and Lenis.
+A full-stack photography marketplace where photographers upload, sell, rent, and auction their work. Buyers browse, purchase licenses, and build collections.
 
 ## Tech Stack
 
 - **Framework:** Next.js 14 (App Router, Server Actions, Server Components)
 - **Database:** PostgreSQL via Supabase + Drizzle ORM
-- **Auth:** Auth.js v5 (credentials, magic link, Google, GitHub)
+- **Auth:** Auth.js v5 (credentials, magic link, Google OAuth, GitHub OAuth)
 - **Payments:** Stripe Checkout + Webhooks
-- **Storage:** Supabase Storage (photos, thumbnails, avatars)
+- **Storage:** Supabase Storage (5 public buckets)
+- **Image Processing:** Sharp (resize, watermark, EXIF extraction, HEIC conversion)
 - **Animations:** GSAP 3.12 + ScrollTrigger
 - **Smooth Scroll:** Lenis
 - **Styling:** Tailwind CSS + Radix UI primitives
 - **State:** Zustand (toasts), React Server Components (data)
 - **Validation:** Zod
-- **Forms:** React Hook Form (auth), native FormData (actions)
+- **Font:** Azeret Mono
 
-## Architecture
+## Features
+
+### Authentication
+- Email/password signup with auto-generated usernames
+- Magic link sign-in (branded HTML email)
+- Google and GitHub OAuth
+- Forgot/reset password flow (branded HTML email)
+- JWT sessions with DB-backed username resolution
+- Edge-safe middleware for route protection
+
+### Photo Management
+- Drag-and-drop upload (JPG, PNG, WebP, HEIC — up to 50MB)
+- Sharp image pipeline: thumbnail generation (600px JPEG), diagonal watermark overlay, EXIF extraction (camera, lens, aperture, shutter speed, ISO, focal length)
+- HEIC to JPEG server-side conversion with client-side preview
+- Edit photo metadata — prefilled form at `/upload?edit={slug}`
+- Archive/restore and delete with Supabase Storage cleanup
+- View count tracking
+
+### Monetization
+- Three models per photo: direct sale, rental, auction
+- Automatic license generation (Personal, Commercial, Extended) with tiered pricing
+- Stripe Checkout integration with webhook fulfillment
+- 15% platform fee, 85% seller share
+- Auction system with bidding, outbid notifications, and auto-close (on-demand + daily Vercel cron)
+
+### Social
+- Like with optimistic updates and notifications
+- Comment with optimistic updates and notifications
+- Follow/unfollow with live follower count
+- Notification system (DB-backed, lazy-loaded dropdown, typed icons, mark all read)
+
+### Collections
+- Full CRUD (create, edit name/description/privacy, delete)
+- Save-to-collection dropdown on photo detail (checks saved state on mount)
+- Quick-save bookmark on photo cards (auto-creates "Saved" collection)
+- Accurate photo counts
+- Collection detail page with photo grid and remove button
+
+### Search
+- Searches by title, description, location, tag name, and photographer name/username
+- Pagination with bookmark state preserved in results
+
+### Dashboard
+- Masonry grid (CSS columns, responsive 1/2/3 columns)
+- Infinite scroll (IntersectionObserver, 20 photos per page)
+- Category filter with sidebar
+
+### Commerce Pages
+- **Purchase history** (`/purchases`) — all purchases with re-download button
+- **Seller earnings** (`/earnings`) — 4 stat cards + full sales history with buyer info
+- **Checkout success** — working download button linked to original file
+
+### Admin Panel (`/admin`)
+- Access controlled by `ADMIN_EMAILS` env var (no schema migration needed)
+- **Dashboard** — total users, photos, purchases, revenue + weekly growth
+- **User management** — search, list, delete with cascade
+- **Photo moderation** — search, filter (all/published/archived), archive/publish toggle, delete
+- Sidebar layout on desktop, horizontal nav on mobile
+
+### Profile & Settings
+- Server-fetched full profile with all fields prefilled
+- Avatar upload with preview
+- Photographer profile page with cover image, stats grid, photo portfolio
+- Social links (Twitter, Instagram, website)
+
+### UI/UX
+- Monochrome logo (block P — white on black)
+- Split card auth pages (form left, photo right)
+- Responsive mobile header (search icon on mobile, icon-only upload button)
+- Image shimmer placeholders while loading
+- Share button (Web Share API + clipboard fallback)
+- Cmd+K / Ctrl+K search shortcut, Escape to close
+- Dark/light theme toggle
+- Error boundaries (global, route-level, 404)
+- Smooth scroll (Lenis) + GSAP landing page animations
+- Toast notifications (Zustand)
+
+### SEO
+- `generateMetadata` on photo detail and photographer pages
+- OG images using watermarked photos for social sharing
+- SVG favicon
+
+### Backend
+- Rate limiting (in-memory sliding window per user/action)
+- Branded HTML email templates (password reset, magic link)
+- Archived photos blocked for non-owners
+- TypeScript strict union narrowing throughout
+
+## Project Structure
 
 ```
 app/
-├── (auth)/              # Auth pages (login, signup, forgot/reset password, verify)
-├── (main)/              # Authenticated pages with site header
-│   ├── dashboard/       # Photo feed with masonry grid
-│   ├── photos/[slug]/   # Photo detail with metadata, comments, purchase
-│   ├── photographers/[username]/  # User profiles
-│   ├── upload/          # Photo upload with monetization options
-│   ├── checkout/        # Stripe checkout flow
-│   ├── search/          # Search results
-│   ├── collections/     # User collections
-│   └── settings/        # Profile editing
-├── api/
-│   ├── auth/[...nextauth]/  # Auth.js handler
-│   └── stripe/webhook/      # Stripe webhook
-└── page.tsx             # Landing page
+├── page.tsx                          # Landing page
+├── layout.tsx                        # Root layout (metadata, fonts, providers)
+├── (auth)/                           # Auth pages (split card layout)
+│   ├── login/
+│   ├── signup/
+│   ├── forgot-password/
+│   └── reset-password/
+├── (main)/                           # Authenticated pages
+│   ├── dashboard/                    # Photo feed + infinite scroll
+│   ├── photos/[slug]/                # Photo detail + comments + purchase
+│   ├── photographers/[username]/     # Profile + portfolio
+│   ├── upload/                       # Upload + edit photo
+│   ├── checkout/[photoId]/           # Stripe checkout + success
+│   ├── search/                       # Full-text search
+│   ├── collections/                  # List + detail
+│   ├── purchases/                    # Purchase history
+│   ├── earnings/                     # Seller dashboard
+│   └── settings/                     # Profile editing
+├── (admin)/                          # Admin panel
+│   └── admin/
+│       ├── page.tsx                  # Stats dashboard
+│       ├── users/                    # User management
+│       └── photos/                   # Photo moderation
+└── api/
+    ├── auth/[...nextauth]/
+    ├── stripe/webhook/
+    ├── cron/auctions/
+    └── photos/archive/
 
 lib/
-├── db/
-│   ├── schema.ts        # Drizzle schema (all tables + relations)
-│   └── index.ts         # Database connection
+├── db/schema.ts                      # 17 tables + relations
 ├── actions/
-│   ├── auth.ts          # Signup, forgot/reset password
-│   ├── photos.ts        # Upload, like, comment, search, feed
-│   ├── users.ts         # Follow, profile, notifications
-│   └── purchases.ts     # Stripe checkout, bids, fulfillment
-├── auth.ts              # Auth.js configuration
-├── supabase.ts          # Storage client + helpers
-├── hooks/use-gsap.ts    # Reusable GSAP scroll animations
+│   ├── admin.ts                      # Admin stats, user/photo management
+│   ├── auctions.ts                   # Auction close + notifications
+│   ├── auth.ts                       # Signup, forgot/reset password
+│   ├── collections.ts                # CRUD, quick-save, isPhotoSaved
+│   ├── photos.ts                     # Upload, edit, search, feed, like, comment
+│   ├── purchases.ts                  # Checkout, bids, fulfillment
+│   └── users.ts                      # Follow, profile, notifications
+├── auth.ts                           # Auth.js config
+├── auth.config.ts                    # Edge-safe auth config
+├── email-templates.ts                # Branded HTML emails
+├── image-processing.ts               # Sharp pipeline
+├── rate-limit.ts                     # Sliding window limiter
+├── supabase.ts                       # Storage helpers
 └── utils/
-    ├── index.ts         # cn(), slugify(), formatPrice(), timeAgo()
-    └── password.ts      # PBKDF2 hashing (Web Crypto API)
 
 components/
-├── ui/                  # Base UI primitives (Button, Card, Input, etc.)
-├── shared/              # Site header, follow button
-├── photos/              # Photo card, like button, comments, purchase panel
-├── dashboard/           # Category filter, sidebar
-├── auth/                # (reserved for auth-specific components)
-└── providers.tsx        # SessionProvider + ThemeProvider + Lenis + GSAP
+├── auth/                             # OAuth buttons, login/signup/reset forms
+├── collections/                      # Create, edit, delete, save-to, remove
+├── dashboard/                        # Category filter, sidebar
+├── photos/                           # Card, like, comment, checkout, purchase panel
+├── shared/                           # Site header, follow button
+├── settings-form.tsx
+├── providers.tsx
+└── ui/                               # Radix primitives
 ```
+
+## Database (17 tables)
+
+users, accounts, sessions, verificationTokens, categories, photos, tags, photoTags, licenses, follows, likes, comments, collections, collectionPhotos, purchases, auctionBids, notifications
 
 ## Setup
 
 ### 1. Clone and install
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/Ritiksh0h/pixel-market.git
 cd pixel-market
 npm install
 ```
 
-### 2. Set up Supabase
+### 2. Supabase
 
-1. Create a project at [supabase.com](https://supabase.com)
-2. Go to **Settings → API** and copy the URL, anon key, and service role key
-3. Go to **Settings → Database** and copy the connection strings
-4. Create storage buckets:
-   - Go to **Storage** → Create buckets: `photos`, `thumbnails`, `watermarked`, `avatars`, `covers`
-   - Set all buckets to **public** (for serving images)
+Create a project at [supabase.com](https://supabase.com). Copy URL, anon key, and service role key from Settings → API. Copy connection strings from Settings → Database. Create 5 public storage buckets: `photos`, `thumbnails`, `watermarked`, `avatars`, `covers`.
 
-### 3. Set up Stripe
+### 3. Stripe
 
-1. Create an account at [stripe.com](https://stripe.com)
-2. Copy your **Secret Key** and **Publishable Key** from the Dashboard
-3. Set up a webhook endpoint pointing to `https://yourdomain.com/api/stripe/webhook`
-4. Select the `checkout.session.completed` event
-5. Copy the **Webhook Secret**
+Copy Secret Key and Publishable Key from [stripe.com](https://dashboard.stripe.com). Create a webhook endpoint pointing to `https://yourdomain.com/api/stripe/webhook`, select `checkout.session.completed`, and copy the Webhook Secret.
 
-### 4. Set up OAuth (optional)
+### 4. OAuth (optional)
 
-**Google:**
-1. Go to [console.cloud.google.com](https://console.cloud.google.com)
-2. Create OAuth 2.0 credentials
-3. Add `http://localhost:3000/api/auth/callback/google` as redirect URI
+Google: [console.cloud.google.com](https://console.cloud.google.com) → OAuth 2.0 → callback `http://localhost:3000/api/auth/callback/google`
 
-**GitHub:**
-1. Go to [github.com/settings/developers](https://github.com/settings/developers)
-2. Create a new OAuth App
-3. Set callback URL to `http://localhost:3000/api/auth/callback/github`
+GitHub: [github.com/settings/developers](https://github.com/settings/developers) → OAuth App → callback `http://localhost:3000/api/auth/callback/github`
 
-### 5. Configure environment
+### 5. Environment
 
 ```bash
 cp .env.example .env
-# Fill in all values in .env
+openssl rand -base64 32  # Generate AUTH_SECRET
+# Fill in all values
 ```
 
-Generate the auth secret:
-```bash
-openssl rand -base64 32
-```
-
-### 6. Set up database
+### 6. Database
 
 ```bash
-# Generate migration files from schema
 npm run db:generate
-
-# Push schema to database
 npm run db:push
-
-# Seed categories and tags
 npm run db:seed
-
-# (Optional) Open Drizzle Studio to browse data
-npm run db:studio
 ```
 
-### 7. Run development server
+### 7. Run
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
-
-### 8. Test Stripe locally
+### 8. Stripe local testing
 
 ```bash
-# Install Stripe CLI: https://stripe.com/docs/stripe-cli
 stripe listen --forward-to localhost:3000/api/stripe/webhook
-# Copy the webhook signing secret it gives you into .env
 ```
 
-## Features Implemented
+## Environment Variables
 
-- [x] Landing page with GSAP scroll animations
-- [x] Auth: credentials signup/login, magic link, Google, GitHub
-- [x] Forgot password + reset password (email flow)
-- [x] Route protection via middleware
-- [x] Dashboard with masonry photo grid + category filter
-- [x] Photo upload with drag-and-drop + Supabase Storage
-- [x] Monetization: sell, rent, and auction options
-- [x] Automatic license generation (Personal, Commercial, Extended)
-- [x] Photo detail page with EXIF metadata display
-- [x] Like system with optimistic updates + notifications
-- [x] Comment system with optimistic updates + notifications
-- [x] Stripe Checkout for purchases
-- [x] Auction bidding with outbid notifications
-- [x] Follow/unfollow with notifications
-- [x] Photographer profiles with stats and photo grid
-- [x] Full-text search with pagination
-- [x] Collections page
-- [x] Profile settings with avatar/cover upload
-- [x] Dark/light theme toggle
-- [x] Smooth scroll (Lenis)
-- [x] Notification system (database-backed)
-- [x] Keyboard shortcuts (Cmd+K for search)
-- [x] Responsive design
-- [x] Toast notifications (Zustand)
+```
+DATABASE_URL
+DIRECT_URL
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+AUTH_SECRET
+AUTH_URL
+AUTH_TRUST_HOST
+AUTH_GOOGLE_ID
+AUTH_GOOGLE_SECRET
+AUTH_GITHUB_ID
+AUTH_GITHUB_SECRET
+EMAIL_SERVER_HOST
+EMAIL_SERVER_PORT
+EMAIL_SERVER_USER
+EMAIL_SERVER_PASSWORD
+EMAIL_FROM
+STRIPE_SECRET_KEY
+STRIPE_PUBLISHABLE_KEY
+STRIPE_WEBHOOK_SECRET
+NEXT_PUBLIC_APP_URL
+CRON_SECRET
+ADMIN_EMAILS
+```
 
-## Remaining Work (TODO)
+## Remaining
 
-- [ ] Image processing pipeline (Sharp: resize thumbnails, extract EXIF, generate watermarks)
-- [ ] Stripe Connect for seller payouts
-- [ ] Real-time notification dropdown (poll or Supabase Realtime)
-- [ ] Collection CRUD (create, add/remove photos, delete)
-- [ ] Infinite scroll / load more on dashboard
-- [ ] Admin panel for content moderation
-- [ ] Email templates (HTML instead of plain text)
-- [ ] Rate limiting on API routes
-- [ ] Unit and integration tests
-- [ ] SEO: dynamic OG images per photo
-- [ ] PWA support
-- [ ] Analytics dashboard for sellers
-
-## Key Design Decisions
-
-1. **Server Actions over API routes** — Cleaner code, automatic revalidation, type safety across the boundary.
-2. **Denormalized counters** — `likeCount`, `viewCount`, `downloadCount` on the photos table avoid expensive COUNT queries on every page load.
-3. **Slug-based URLs** — `/photos/mountain-sunrise-1712345678` is more SEO-friendly than `/photos/clxyz123`.
-4. **Optimistic updates** — Like and comment actions update UI immediately, then sync with server.
-5. **JWT sessions** — Faster than database sessions for read-heavy pages. Session data is kept minimal.
-6. **PBKDF2 via Web Crypto** — No native dependencies (unlike bcrypt). Runs in Edge runtime.
+- Stripe Connect for seller payouts
+- Unit and integration tests
