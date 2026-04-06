@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import { collections, collectionPhotos, photos } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
-import { eq, and, desc, count } from "drizzle-orm";
+import { eq, and, desc, count, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -190,6 +190,24 @@ export async function getUserCollections(photoId?: string) {
     orderBy: desc(collections.updatedAt),
   });
 
+  // Get actual photo counts (the photos relation is limited to 4 for thumbnails)
+  const counts = await db
+    .select({
+      collectionId: collectionPhotos.collectionId,
+      count: count(),
+    })
+    .from(collectionPhotos)
+    .where(
+      sql`${collectionPhotos.collectionId} IN (${
+        userCollections.length > 0
+          ? sql.join(userCollections.map((c) => sql`${c.id}`), sql`, `)
+          : sql`NULL`
+      })`
+    )
+    .groupBy(collectionPhotos.collectionId);
+
+  const countMap = new Map(counts.map((c) => [c.collectionId, c.count]));
+
   // If photoId provided, check which collections contain it
   if (photoId) {
     const inCollections = await db
@@ -200,14 +218,14 @@ export async function getUserCollections(photoId?: string) {
 
     return userCollections.map((c) => ({
       ...c,
-      photoCount: c.photos.length,
+      photoCount: countMap.get(c.id) || 0,
       containsPhoto: inSet.has(c.id),
     }));
   }
 
   return userCollections.map((c) => ({
     ...c,
-    photoCount: c.photos.length,
+    photoCount: countMap.get(c.id) || 0,
     containsPhoto: false,
   }));
 }
@@ -251,10 +269,32 @@ export async function quickSaveAction(photoId: string) {
     await db
       .delete(collectionPhotos)
       .where(and(eq(collectionPhotos.collectionId, saved.id), eq(collectionPhotos.photoId, photoId)));
+    revalidatePath("/collections");
     return { saved: false };
   } else {
     await db.insert(collectionPhotos).values({ collectionId: saved.id, photoId });
     await db.update(collections).set({ updatedAt: new Date() }).where(eq(collections.id, saved.id));
+    revalidatePath("/collections");
     return { saved: true };
   }
+}
+
+// ── Quick check if photo is saved in any collection ──
+export async function isPhotoSavedAction(photoId: string): Promise<boolean> {
+  const session = await auth();
+  if (!session?.user?.id) return false;
+
+  const result = await db
+    .select({ id: collectionPhotos.collectionId })
+    .from(collectionPhotos)
+    .innerJoin(collections, eq(collections.id, collectionPhotos.collectionId))
+    .where(
+      and(
+        eq(collectionPhotos.photoId, photoId),
+        eq(collections.userId, session.user.id)
+      )
+    )
+    .limit(1);
+
+  return result.length > 0;
 }

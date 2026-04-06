@@ -7,6 +7,7 @@ import {
   getUserCollections,
   togglePhotoInCollectionAction,
   createCollectionAction,
+  isPhotoSavedAction,
 } from "@/lib/actions/collections";
 import { toast } from "@/components/ui/toaster";
 import { Bookmark, Check, Plus, X, FolderOpen, Loader2 } from "lucide-react";
@@ -29,20 +30,26 @@ export function SaveToCollectionButton({ photoId }: SaveToCollectionProps) {
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [savedState, setSavedState] = useState(false);
 
-  // Fetch collections when modal opens
+  // Check saved state on mount (lightweight query)
+  useEffect(() => {
+    isPhotoSavedAction(photoId).then(setSavedState);
+  }, [photoId]);
+
+  // Fetch full collections when dropdown opens
   useEffect(() => {
     if (open) {
       setLoading(true);
       getUserCollections(photoId).then((data) => {
         setCollections(data as CollectionItem[]);
         setLoading(false);
+        setSavedState(data.some((c: any) => c.containsPhoto));
       });
     }
   }, [open, photoId]);
 
   function handleToggle(collectionId: string) {
-    // Optimistic update
     setCollections((prev) =>
       prev.map((c) =>
         c.id === collectionId ? { ...c, containsPhoto: !c.containsPhoto } : c
@@ -53,12 +60,16 @@ export function SaveToCollectionButton({ photoId }: SaveToCollectionProps) {
       const result = await togglePhotoInCollectionAction(collectionId, photoId);
       if ("error" in result) {
         toast.error(result.error as string);
-        // Revert
         setCollections((prev) =>
           prev.map((c) =>
             c.id === collectionId ? { ...c, containsPhoto: !c.containsPhoto } : c
           )
         );
+      } else {
+        // Update saved state after toggle
+        setSavedState(collections.some((c) =>
+          c.id === collectionId ? !c.containsPhoto : c.containsPhoto
+        ));
       }
     });
   }
@@ -84,18 +95,16 @@ export function SaveToCollectionButton({ photoId }: SaveToCollectionProps) {
     });
   }
 
-  const isSaved = collections.some((c) => c.containsPhoto);
-
   return (
     <div className="relative">
       <Button
         variant="outline"
         size="sm"
         onClick={() => setOpen(!open)}
-        className={isSaved ? "text-foreground" : ""}
+        className={savedState ? "text-foreground" : ""}
       >
-        <Bookmark className={`h-4 w-4 mr-1.5 ${isSaved ? "fill-current" : ""}`} />
-        {isSaved ? "Saved" : "Save"}
+        <Bookmark className={`h-4 w-4 mr-1.5 ${savedState ? "fill-current" : ""}`} />
+        {savedState ? "Saved" : "Save"}
       </Button>
 
       {open && (

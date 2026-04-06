@@ -77,7 +77,7 @@ export function PhotoCard({ photo }: PhotoCardProps) {
         href={`/photos/${photo.slug}`}
         className="block"
       >
-        <div className="relative overflow-hidden rounded-lg">
+        <div className="relative overflow-hidden rounded-lg img-shimmer">
           <Image
             width={500}
             height={500}
@@ -85,7 +85,7 @@ export function PhotoCard({ photo }: PhotoCardProps) {
             alt={photo.title}
             quality={90}
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            className="w-full h-auto object-cover transition-transform duration-300 group-hover:scale-105"
+            className="w-full h-auto object-cover transition-transform duration-300 group-hover:scale-105 bg-muted"
           />
 
           {/* Hover overlay */}

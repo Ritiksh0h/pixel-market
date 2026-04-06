@@ -51,22 +51,36 @@ import { toast } from "@/components/ui/toaster";
 export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background">
-      <div className="container flex h-16 items-center">
-        <div className="flex items-center space-x-4">
-          <Link href="/dashboard" className="flex items-center space-x-2">
-            <span className="font-bold text-xl">PixelMarket</span>
-          </Link>
-        </div>
-        <div className="flex-1 mx-4">
+      <div className="container flex h-14 items-center gap-2 md:h-16 md:gap-4">
+        <Link href="/dashboard" className="flex items-center shrink-0">
+          <span className="font-bold text-lg md:text-xl">PixelMarket</span>
+        </Link>
+        {/* Search — full bar on desktop, icon trigger on mobile */}
+        <div className="flex-1 hidden md:block">
           <SearchDropdown />
         </div>
-        <div className="flex items-center space-x-4">
+        <MobileSearchButton />
+        <div className="flex items-center gap-1 md:gap-2">
           <UploadDropdown />
           <NotificationDropdown />
           <UserDropdown />
         </div>
       </div>
     </header>
+  );
+}
+
+function MobileSearchButton() {
+  const router = useRouter();
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="md:hidden"
+      onClick={() => router.push("/search")}
+    >
+      <Search className="h-5 w-5" />
+    </Button>
   );
 }
 
@@ -197,9 +211,9 @@ function UploadDropdown() {
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
-        <Button className="hidden md:flex" variant="outline">
-          <Upload className="h-4 w-4 mr-2" />
-          Upload
+        <Button variant="outline" className="gap-2">
+          <Upload className="h-4 w-4" />
+          <span className="hidden md:inline">Upload</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-64" align="end" forceMount>
