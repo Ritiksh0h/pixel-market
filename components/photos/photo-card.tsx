@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -13,7 +13,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Bookmark, MoreHorizontal } from "lucide-react";
+import { Bookmark, MoreHorizontal, Loader2 } from "lucide-react";
+import { quickSaveAction } from "@/lib/actions/collections";
+import { toast } from "@/components/ui/toaster";
 
 interface PhotoCardProps {
   photo: {
@@ -43,11 +45,23 @@ interface PhotoCardProps {
 export function PhotoCard({ photo }: PhotoCardProps) {
   const router = useRouter();
   const [bookmarked, setBookmarked] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
-  const toggleBookmark = (e: React.MouseEvent) => {
+  const handleBookmark = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    // Optimistic update
     setBookmarked(!bookmarked);
+    startTransition(async () => {
+      const result = await quickSaveAction(photo.id);
+      if (result.error) {
+        setBookmarked(bookmarked); // revert
+        toast.error(result.error);
+      } else if (result.saved !== undefined) {
+        setBookmarked(result.saved);
+        toast.success(result.saved ? "Saved to collection" : "Removed from saved");
+      }
+    });
   };
 
   const goToPhotographer = (e: React.MouseEvent) => {
@@ -106,7 +120,8 @@ export function PhotoCard({ photo }: PhotoCardProps) {
             <Button
               size="icon"
               variant="secondary"
-              onClick={toggleBookmark}
+              onClick={handleBookmark}
+              disabled={isPending}
             >
               <Bookmark
                 className={`h-4 w-4 ${bookmarked ? "fill-current" : ""}`}

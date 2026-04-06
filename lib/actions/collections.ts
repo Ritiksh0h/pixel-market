@@ -211,3 +211,50 @@ export async function getUserCollections(photoId?: string) {
     containsPhoto: false,
   }));
 }
+
+// ── Quick save (one-click bookmark from photo cards) ──
+// Auto-creates a "Saved" collection if none exists, then toggles the photo
+export async function quickSaveAction(photoId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Not authenticated" };
+  const rl = rateLimit(session.user.id, "collection");
+  if (rl) return rl;
+
+  // Find or create default "Saved" collection
+  let [saved] = await db
+    .select({ id: collections.id })
+    .from(collections)
+    .where(and(eq(collections.userId, session.user.id), eq(collections.name, "Saved")))
+    .limit(1);
+
+  if (!saved) {
+    const [created] = await db
+      .insert(collections)
+      .values({
+        name: "Saved",
+        description: "Quick-saved photos",
+        isPublic: false,
+        userId: session.user.id,
+      })
+      .returning({ id: collections.id });
+    saved = created;
+  }
+
+  // Toggle photo in/out
+  const [existing] = await db
+    .select()
+    .from(collectionPhotos)
+    .where(and(eq(collectionPhotos.collectionId, saved.id), eq(collectionPhotos.photoId, photoId)))
+    .limit(1);
+
+  if (existing) {
+    await db
+      .delete(collectionPhotos)
+      .where(and(eq(collectionPhotos.collectionId, saved.id), eq(collectionPhotos.photoId, photoId)));
+    return { saved: false };
+  } else {
+    await db.insert(collectionPhotos).values({ collectionId: saved.id, photoId });
+    await db.update(collections).set({ updatedAt: new Date() }).where(eq(collections.id, saved.id));
+    return { saved: true };
+  }
+}
