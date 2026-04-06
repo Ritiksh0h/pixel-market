@@ -347,6 +347,34 @@ export async function getPhotoBySlug(slug: string) {
 
   if (!photo) return null;
 
+  // Close expired auction on-demand (instead of waiting for daily cron)
+  if (photo.forAuction && photo.auctionEndDate && new Date(photo.auctionEndDate) < new Date()) {
+    const { closeAuction } = await import("@/lib/actions/auctions");
+    await closeAuction(photo.id);
+    // Refetch since auction state changed
+    const updated = await db.query.photos.findFirst({
+      where: eq(photos.slug, slug),
+      with: {
+        user: {
+          columns: { id: true, name: true, username: true, image: true, bio: true, location: true },
+        },
+        category: true,
+        tags: { with: { tag: true } },
+        licenses: true,
+        comments: {
+          with: {
+            user: { columns: { id: true, name: true, username: true, image: true } },
+          },
+          orderBy: desc(comments.createdAt),
+          limit: 50,
+        },
+      },
+    });
+    if (updated) {
+      Object.assign(photo, updated);
+    }
+  }
+
   // Increment view count
   await db
     .update(photos)
