@@ -62,7 +62,7 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-black bg-opacity-50"></div>
         <header className="text-center mb-12 relative z-10" data-hero>
           <h1 className="text-5xl font-extrabold text-white drop-shadow-lg" data-hero>
-            Photo Market
+            PixelMarket
           </h1>
           <p className="text-md text-gray-200 mt-4 max-w-md mx-auto drop-shadow-md" data-hero>
             Discover and trade breathtaking photography from creators worldwide.

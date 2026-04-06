@@ -53,8 +53,9 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background">
       <div className="container flex h-14 items-center gap-2 md:h-16 md:gap-4">
-        <Link href="/dashboard" className="flex items-center shrink-0">
-          <span className="font-bold text-lg md:text-xl">PixelMarket</span>
+        <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
+          <img src="/logo.svg" alt="PixelMarket" className="h-7 w-7 md:h-8 md:w-8" />
+          <span className="font-bold text-lg md:text-xl hidden sm:inline">PixelMarket</span>
         </Link>
         {/* Search — full bar on desktop, icon trigger on mobile */}
         <div className="flex-1 hidden md:block">

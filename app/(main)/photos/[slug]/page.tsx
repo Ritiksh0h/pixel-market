@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { getPhotoBySlug } from "@/lib/actions/photos";
@@ -21,6 +22,30 @@ import { OwnerActions } from "@/components/photos/owner-actions";
 import { ShareButton } from "@/components/photos/share-button";
 import { SaveToCollectionButton } from "@/components/collections/save-to-collection";
 import { FollowButton } from "@/components/shared/follow-button";
+
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const photo = await db.query.photos.findFirst({
+    where: eq(photos.slug, params.slug),
+    with: { user: { columns: { name: true, username: true } } },
+  });
+  if (!photo) return { title: "Photo not found" };
+
+  const photographer = photo.user.name || photo.user.username || "Unknown";
+  return {
+    title: `${photo.title} by ${photographer}`,
+    description: photo.description || `${photo.title} — a photograph by ${photographer} on PixelMarket`,
+    openGraph: {
+      title: `${photo.title} by ${photographer}`,
+      description: photo.description || `A photograph by ${photographer}`,
+      images: [{ url: photo.watermarkedUrl || photo.thumbnailUrl, width: photo.width, height: photo.height }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${photo.title} by ${photographer}`,
+      images: [photo.watermarkedUrl || photo.thumbnailUrl],
+    },
+  };
+}
 
 export default async function PhotoPage({ params }: { params: { slug: string } }) {
   const photo = await getPhotoBySlug(params.slug);

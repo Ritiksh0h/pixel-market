@@ -13,6 +13,22 @@ export const metadata: Metadata = {
   },
   description:
     "Buy, sell, rent, and auction extraordinary photography from creators worldwide.",
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+    apple: "/icon.svg",
+  },
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
+  openGraph: {
+    type: "website",
+    siteName: "PixelMarket",
+    title: "PixelMarket — Photography Marketplace",
+    description: "Buy, sell, rent, and auction extraordinary photography from creators worldwide.",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export default function RootLayout({

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { getUserProfile } from "@/lib/actions/users";
@@ -15,6 +16,21 @@ import {
   ImageIcon,
   DollarSign,
 } from "lucide-react";
+
+export async function generateMetadata({ params }: { params: { username: string } }): Promise<Metadata> {
+  const profile = await getUserProfile(params.username);
+  if (!profile) return { title: "Photographer not found" };
+  const name = profile.name || profile.username;
+  return {
+    title: `${name} — Photographer`,
+    description: profile.bio || `${name}'s photography portfolio on PixelMarket. ${profile.photoCount} photos.`,
+    openGraph: {
+      title: `${name} — Photographer on PixelMarket`,
+      description: profile.bio || `Browse ${name}'s portfolio`,
+      images: profile.image ? [{ url: profile.image }] : [],
+    },
+  };
+}
 
 export default async function PhotographerProfilePage({
   params,
