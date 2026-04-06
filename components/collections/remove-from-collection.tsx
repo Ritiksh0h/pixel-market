@@ -20,7 +20,7 @@ export function RemoveFromCollectionButton({ collectionId, photoId }: Props) {
     e.stopPropagation();
     startTransition(async () => {
       const result = await removeFromCollectionAction(collectionId, photoId);
-      if (result.error) toast.error(result.error);
+      if ("error" in result) toast.error(result.error as string);
       else {
         toast.success("Removed from collection");
         router.refresh();

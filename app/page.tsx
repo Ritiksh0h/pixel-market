@@ -70,7 +70,7 @@ export default function HomePage() {
         </header>
         <main className="flex flex-col items-center space-y-4 relative z-10" data-hero>
           <Link
-            href="/signup"
+            href="/login"
             className={cn(
               buttonVariants({ size: "lg" }),
               "transition transform hover:scale-105"
@@ -120,9 +120,9 @@ export default function HomePage() {
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
           <span className="font-semibold text-foreground">PixelMarket</span>
           <div className="flex gap-6">
-            <Link href="#" className="hover:text-foreground transition-colors">About</Link>
-            <Link href="#" className="hover:text-foreground transition-colors">Terms</Link>
-            <Link href="#" className="hover:text-foreground transition-colors">Privacy</Link>
+            <span className="text-muted-foreground">About</span>
+            <span className="text-muted-foreground">Terms</span>
+            <span className="text-muted-foreground">Privacy</span>
           </div>
         </div>
       </footer>

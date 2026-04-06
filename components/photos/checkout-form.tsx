@@ -16,7 +16,7 @@ export function CheckoutForm({ photoId, licenseId }: CheckoutFormProps) {
   function handlePurchase() {
     startTransition(async () => {
       const result = await createCheckoutAction(photoId, licenseId, "buy");
-      if (result.error) toast.error(result.error);
+      if ("error" in result) toast.error(result.error as string);
       else if (result.url) window.location.href = result.url;
     });
   }

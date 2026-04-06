@@ -18,7 +18,7 @@ export function CreateCollectionButton() {
     const fd = new FormData(e.currentTarget);
     startTransition(async () => {
       const result = await createCollectionAction(fd);
-      if (result.error) toast.error(result.error);
+      if ("error" in result) toast.error(result.error as string);
       else {
         toast.success("Collection created");
         setOpen(false);

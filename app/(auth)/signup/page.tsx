@@ -33,8 +33,8 @@ export default function SignupPage() {
 
     const result = await signupAction(fd);
 
-    if (result.error) {
-      toast.error(result.error);
+    if ("error" in result) {
+      toast.error(result.error as string);
       setLoading(false);
     } else {
       toast.success("Account created!");

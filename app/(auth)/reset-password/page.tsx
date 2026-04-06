@@ -50,7 +50,7 @@ function ResetPasswordContent() {
     if (pw !== confirm) { toast.error("Passwords do not match"); setLoading(false); return; }
 
     const result = await resetPasswordAction(fd);
-    if (result.error) { toast.error(result.error); } else { setDone(true); }
+    if ("error" in result) { toast.error(result.error as string); } else { setDone(true); }
     setLoading(false);
   }
 

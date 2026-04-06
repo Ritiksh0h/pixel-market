@@ -63,8 +63,8 @@ export function CommentSection({ photoId, comments: initialComments }: CommentSe
       fd.append("photoId", photoId);
       fd.append("text", commentText);
       const result = await addCommentAction(fd);
-      if (result.error) {
-        toast.error(result.error);
+      if ("error" in result) {
+        toast.error(result.error as string);
         setComments(initialComments);
         setText(commentText);
       }

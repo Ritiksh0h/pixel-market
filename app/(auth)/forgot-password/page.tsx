@@ -20,8 +20,8 @@ export default function ForgotPasswordPage() {
     const fd = new FormData(e.currentTarget);
     const result = await forgotPasswordAction(fd);
 
-    if (result.error) {
-      toast.error(result.error);
+    if ("error" in result) {
+      toast.error(result.error as string);
     } else {
       setSent(true);
     }

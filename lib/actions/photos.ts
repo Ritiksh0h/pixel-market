@@ -259,16 +259,49 @@ export async function addCommentAction(formData: FormData) {
 // ── Search photos ──
 export async function searchPhotosAction(query: string, page = 1, limit = 20) {
   const offset = (page - 1) * limit;
+  const q = `%${query}%`;
+
+  // Find matching tag IDs
+  const matchingTags = await db
+    .select({ id: tags.id })
+    .from(tags)
+    .where(ilike(tags.name, q));
+  const tagIds = matchingTags.map((t) => t.id);
+
+  // Find matching user IDs (photographer search)
+  const { users: usersTable } = await import("@/lib/db/schema");
+  const matchingUsers = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(or(ilike(usersTable.name, q), ilike(usersTable.username, q)));
+  const userIds = matchingUsers.map((u) => u.id);
+
+  // Find photo IDs that have matching tags
+  let tagPhotoIds: string[] = [];
+  if (tagIds.length > 0) {
+    const tagPhotos = await db
+      .select({ photoId: photoTags.photoId })
+      .from(photoTags)
+      .where(sql`${photoTags.tagId} IN (${sql.join(tagIds.map((id) => sql`${id}`), sql`, `)})`);
+    tagPhotoIds = tagPhotos.map((tp) => tp.photoId);
+  }
+
+  // Build search conditions
+  const conditions = [
+    ilike(photos.title, q),
+    ilike(photos.description, q),
+    ilike(photos.locationTaken, q),
+  ];
+
+  if (tagPhotoIds.length > 0) {
+    conditions.push(sql`${photos.id} IN (${sql.join(tagPhotoIds.map((id) => sql`${id}`), sql`, `)})`);
+  }
+  if (userIds.length > 0) {
+    conditions.push(sql`${photos.userId} IN (${sql.join(userIds.map((id) => sql`${id}`), sql`, `)})`);
+  }
 
   const results = await db.query.photos.findMany({
-    where: and(
-      eq(photos.isPublished, true),
-      or(
-        ilike(photos.title, `%${query}%`),
-        ilike(photos.description, `%${query}%`),
-        ilike(photos.locationTaken, `%${query}%`)
-      )
-    ),
+    where: and(eq(photos.isPublished, true), or(...conditions)),
     with: {
       user: { columns: { id: true, name: true, username: true, image: true } },
       category: true,
@@ -281,21 +314,35 @@ export async function searchPhotosAction(query: string, page = 1, limit = 20) {
   const [{ total }] = await db
     .select({ total: count() })
     .from(photos)
-    .where(
-      and(
-        eq(photos.isPublished, true),
-        or(
-          ilike(photos.title, `%${query}%`),
-          ilike(photos.description, `%${query}%`)
-        )
-      )
-    );
+    .where(and(eq(photos.isPublished, true), or(...conditions)));
 
-  return { photos: results, total, page, totalPages: Math.ceil(total / limit) };
+  // Check saved state
+  const session = await auth();
+  let savedSet = new Set<string>();
+  if (session?.user?.id) {
+    const { collections: collectionsTable, collectionPhotos } = await import("@/lib/db/schema");
+    const [saved] = await db
+      .select({ id: collectionsTable.id })
+      .from(collectionsTable)
+      .where(and(eq(collectionsTable.userId, session.user.id), eq(collectionsTable.name, "Saved")))
+      .limit(1);
+    if (saved) {
+      const sp = await db.select({ photoId: collectionPhotos.photoId }).from(collectionPhotos).where(eq(collectionPhotos.collectionId, saved.id));
+      savedSet = new Set(sp.map((s) => s.photoId));
+    }
+  }
+
+  return {
+    photos: results.map((p) => ({ ...p, isSaved: savedSet.has(p.id) })),
+    total,
+    page,
+    totalPages: Math.ceil(total / limit),
+  };
 }
 
 // ── Get feed photos (dashboard) ──
 export async function getFeedPhotos(page = 1, limit = 20, category?: string) {
+  const session = await auth();
   const offset = (page - 1) * limit;
 
   const where = category
@@ -312,7 +359,27 @@ export async function getFeedPhotos(page = 1, limit = 20, category?: string) {
     offset,
   });
 
-  return results;
+  // Check which photos are saved by current user
+  if (session?.user?.id) {
+    const { collections: collectionsTable, collectionPhotos } = await import("@/lib/db/schema");
+    const [savedCollection] = await db
+      .select({ id: collectionsTable.id })
+      .from(collectionsTable)
+      .where(and(eq(collectionsTable.userId, session.user.id), eq(collectionsTable.name, "Saved")))
+      .limit(1);
+
+    if (savedCollection) {
+      const savedPhotos = await db
+        .select({ photoId: collectionPhotos.photoId })
+        .from(collectionPhotos)
+        .where(eq(collectionPhotos.collectionId, savedCollection.id));
+      const savedSet = new Set(savedPhotos.map((s) => s.photoId));
+
+      return results.map((p) => ({ ...p, isSaved: savedSet.has(p.id) }));
+    }
+  }
+
+  return results.map((p) => ({ ...p, isSaved: false }));
 }
 
 // ── Get single photo by slug ──
@@ -346,6 +413,11 @@ export async function getPhotoBySlug(slug: string) {
   });
 
   if (!photo) return null;
+
+  // Block archived photos for non-owners
+  if (!photo.isPublished && (!session?.user?.id || session.user.id !== photo.userId)) {
+    return null;
+  }
 
   // Close expired auction on-demand (instead of waiting for daily cron)
   if (photo.forAuction && photo.auctionEndDate && new Date(photo.auctionEndDate) < new Date()) {
@@ -381,8 +453,9 @@ export async function getPhotoBySlug(slug: string) {
     .set({ viewCount: sql`${photos.viewCount} + 1` })
     .where(eq(photos.id, photo.id));
 
-  // Check if current user liked this photo
+  // Check if current user liked this photo + follows photographer
   let isLiked = false;
+  let isFollowing = false;
   if (session?.user?.id) {
     const [like] = await db
       .select()
@@ -390,9 +463,19 @@ export async function getPhotoBySlug(slug: string) {
       .where(and(eq(likes.userId, session.user.id), eq(likes.photoId, photo.id)))
       .limit(1);
     isLiked = !!like;
+
+    if (session.user.id !== photo.userId) {
+      const { follows } = await import("@/lib/db/schema");
+      const [follow] = await db
+        .select()
+        .from(follows)
+        .where(and(eq(follows.followerId, session.user.id), eq(follows.followingId, photo.userId)))
+        .limit(1);
+      isFollowing = !!follow;
+    }
   }
 
-  return { ...photo, isLiked };
+  return { ...photo, isLiked, isFollowing };
 }
 
 // ── Delete photo ──
@@ -426,4 +509,111 @@ export async function deletePhotoAction(photoId: string) {
 
   revalidatePath("/dashboard");
   return { success: true };
+}
+
+// ── Get photo for editing (owner only) ──
+export async function getPhotoForEdit(slug: string) {
+  const session = await auth();
+  if (!session?.user?.id) return null;
+
+  const photo = await db.query.photos.findFirst({
+    where: and(eq(photos.slug, slug), eq(photos.userId, session.user.id)),
+    with: {
+      tags: { with: { tag: true } },
+      licenses: true,
+    },
+  });
+
+  return photo || null;
+}
+
+// ── Update photo metadata (owner only) ──
+export async function updatePhotoAction(formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Not authenticated" };
+  const rl = rateLimit(session.user.id, "upload");
+  if (rl) return rl;
+
+  const photoId = formData.get("photoId") as string;
+  if (!photoId) return { error: "Missing photo ID" };
+
+  // Verify ownership
+  const [photo] = await db
+    .select()
+    .from(photos)
+    .where(and(eq(photos.id, photoId), eq(photos.userId, session.user.id)))
+    .limit(1);
+
+  if (!photo) return { error: "Photo not found or not authorized" };
+
+  const title = (formData.get("title") as string) || photo.title;
+  const description = formData.get("description") as string;
+  const locationTaken = formData.get("locationTaken") as string;
+  const hideLocation = formData.get("hideLocation") === "true";
+  const tagNames = (formData.get("tags") as string)?.split(",").map((t) => t.trim()).filter(Boolean) || [];
+
+  // Monetization
+  const forSale = formData.get("forSale") === "true";
+  const salePrice = forSale ? parseFloat(formData.get("salePrice") as string) : null;
+  const forRent = formData.get("forRent") === "true";
+  const rentPriceMonthly = forRent ? parseFloat(formData.get("rentPrice") as string) : null;
+  const forAuction = formData.get("forAuction") === "true";
+  const auctionStartBid = forAuction ? parseFloat(formData.get("auctionStartBid") as string) : null;
+  const auctionDays = forAuction ? parseInt(formData.get("auctionDays") as string) || 7 : null;
+
+  // Update slug if title changed
+  const newSlug = title !== photo.title ? slugify(title) + "-" + Date.now() : photo.slug;
+
+  await db
+    .update(photos)
+    .set({
+      title,
+      slug: newSlug,
+      description,
+      locationTaken,
+      hideLocation,
+      forSale,
+      salePrice,
+      forRent,
+      rentPriceMonthly,
+      forAuction,
+      auctionStartBid,
+      auctionEndDate: auctionDays ? new Date(Date.now() + auctionDays * 86400000) : photo.auctionEndDate,
+      updatedAt: new Date(),
+    })
+    .where(eq(photos.id, photoId));
+
+  // Update tags — delete old, insert new
+  if (tagNames.length > 0) {
+    await db.delete(photoTags).where(eq(photoTags.photoId, photoId));
+    for (const name of tagNames) {
+      const tagSlug = slugify(name);
+      const [tag] = await db
+        .insert(tags)
+        .values({ name: name.toLowerCase(), slug: tagSlug })
+        .onConflictDoNothing({ target: tags.name })
+        .returning();
+
+      const tagId = tag?.id || (await db.select({ id: tags.id }).from(tags).where(eq(tags.name, name.toLowerCase())).limit(1))[0]?.id;
+
+      if (tagId) {
+        await db.insert(photoTags).values({ photoId, tagId }).onConflictDoNothing();
+      }
+    }
+  }
+
+  // Update licenses if monetization changed
+  if (forSale && salePrice) {
+    await db.delete(licenses).where(eq(licenses.photoId, photoId));
+    const licenseTypes = [
+      { name: "Personal", description: "For personal, non-commercial use", price: salePrice },
+      { name: "Commercial", description: "For commercial projects and campaigns", price: Math.round(salePrice * 2.5 * 100) / 100 },
+      { name: "Extended", description: "Unlimited use, all platforms, resale rights", price: Math.round(salePrice * 5 * 100) / 100 },
+    ];
+    await db.insert(licenses).values(licenseTypes.map((l) => ({ ...l, photoId })));
+  }
+
+  revalidatePath(`/photos/${newSlug}`);
+  revalidatePath("/dashboard");
+  return { success: true, slug: newSlug };
 }

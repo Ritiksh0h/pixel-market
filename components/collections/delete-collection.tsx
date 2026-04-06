@@ -20,7 +20,7 @@ export function DeleteCollectionButton({ collectionId, name }: Props) {
   function handleDelete() {
     startTransition(async () => {
       const result = await deleteCollectionAction(collectionId);
-      if (result.error) toast.error(result.error);
+      if ("error" in result) toast.error(result.error as string);
       else {
         toast.success("Collection deleted");
         router.refresh();

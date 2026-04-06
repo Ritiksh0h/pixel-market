@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 import { getNotifications, markNotificationsReadAction } from "@/lib/actions/users";
 import { timeAgo } from "@/lib/utils";
+import { toast } from "@/components/ui/toaster";
 
 // ═══════════════════════════════════════
 // SITE HEADER (matches original layout)
@@ -97,6 +98,23 @@ function SearchDropdown() {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Cmd+K / Ctrl+K shortcut to focus search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        inputRef.current?.focus();
+        setIsFocused(true);
+      }
+      if (e.key === "Escape") {
+        inputRef.current?.blur();
+        setIsFocused(false);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   const handleSearch = (term: string) => {
@@ -195,27 +213,27 @@ function UploadDropdown() {
               <span className="text-xs text-muted-foreground">JPG, PNG, WebP (max 50MB)</span>
             </div>
           </DropdownMenuItem>
-          <DropdownMenuItem className="py-3 cursor-pointer">
+          <DropdownMenuItem className="py-3 cursor-pointer" onClick={() => toast.info("Video uploads coming soon")}>
             <Film className="h-4 w-4 mr-3 text-red-500" />
             <div className="flex flex-col">
               <span className="font-medium">Upload Video</span>
-              <span className="text-xs text-muted-foreground">MP4, WebM (max 1GB)</span>
+              <span className="text-xs text-muted-foreground">Coming soon</span>
             </div>
           </DropdownMenuItem>
-          <DropdownMenuItem className="py-3 cursor-pointer">
+          <DropdownMenuItem className="py-3 cursor-pointer" onClick={() => toast.info("Collection uploads coming soon")}>
             <FolderUp className="h-4 w-4 mr-3 text-amber-500" />
             <div className="flex flex-col">
               <span className="font-medium">Upload Collection</span>
-              <span className="text-xs text-muted-foreground">Multiple files at once</span>
+              <span className="text-xs text-muted-foreground">Coming soon</span>
             </div>
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="py-3 cursor-pointer">
+        <DropdownMenuItem className="py-3 cursor-pointer" onClick={() => toast.info("Bulk uploads coming soon")}>
           <UploadCloud className="h-4 w-4 mr-3 text-purple-500" />
           <div className="flex flex-col">
             <span className="font-medium">Bulk Upload</span>
-            <span className="text-xs text-muted-foreground">Upload multiple files with metadata</span>
+            <span className="text-xs text-muted-foreground">Coming soon</span>
           </div>
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -320,7 +338,9 @@ function NotificationDropdown() {
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem className="justify-center text-center text-sm">
-          {notifications.length > 0 ? "View all notifications" : "You're all caught up"}
+          {notifications.length > 0
+            ? `${notifications.length} notification${notifications.length !== 1 ? "s" : ""}`
+            : "You\u2019re all caught up"}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -364,7 +384,13 @@ function UserDropdown() {
             <User className="mr-2 h-4 w-4" /><span>Profile</span>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => router.push("/collections")}>
-            <BookmarkIcon className="mr-2 h-4 w-4" /><span>Bookmarks</span>
+            <BookmarkIcon className="mr-2 h-4 w-4" /><span>Collections</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => router.push("/purchases")}>
+            <ShoppingCart className="mr-2 h-4 w-4" /><span>My Purchases</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => router.push("/earnings")}>
+            <DollarSign className="mr-2 h-4 w-4" /><span>Earnings</span>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => router.push("/settings")}>
             <Settings className="mr-2 h-4 w-4" /><span>Settings</span>

@@ -10,6 +10,8 @@ const protectedPaths = [
   "/checkout",
   "/settings",
   "/collections",
+  "/purchases",
+  "/earnings",
 ];
 
 const authPaths = ["/login", "/signup", "/forgot-password"];
@@ -19,7 +21,8 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth;
   const path = nextUrl.pathname;
 
-  if (isLoggedIn && authPaths.some((p) => path.startsWith(p))) {
+  // Redirect logged-in users from landing/auth pages to dashboard
+  if (isLoggedIn && (path === "/" || authPaths.some((p) => path.startsWith(p)))) {
     return NextResponse.redirect(new URL("/dashboard", nextUrl));
   }
 

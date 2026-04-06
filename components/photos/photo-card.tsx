@@ -33,6 +33,7 @@ interface PhotoCardProps {
     rentPriceMonthly: number | null;
     forAuction: boolean;
     auctionStartBid: number | null;
+    isSaved?: boolean;
     user: {
       id: string;
       name: string | null;
@@ -44,7 +45,7 @@ interface PhotoCardProps {
 
 export function PhotoCard({ photo }: PhotoCardProps) {
   const router = useRouter();
-  const [bookmarked, setBookmarked] = useState(false);
+  const [bookmarked, setBookmarked] = useState(photo.isSaved ?? false);
   const [isPending, startTransition] = useTransition();
 
   const handleBookmark = (e: React.MouseEvent) => {
@@ -54,10 +55,10 @@ export function PhotoCard({ photo }: PhotoCardProps) {
     setBookmarked(!bookmarked);
     startTransition(async () => {
       const result = await quickSaveAction(photo.id);
-      if (result.error) {
+      if ("error" in result) {
         setBookmarked(bookmarked); // revert
-        toast.error(result.error);
-      } else if (result.saved !== undefined) {
+        toast.error(result.error as string);
+      } else if ("saved" in result) {
         setBookmarked(result.saved);
         toast.success(result.saved ? "Saved to collection" : "Removed from saved");
       }
@@ -142,9 +143,20 @@ export function PhotoCard({ photo }: PhotoCardProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem>View details</DropdownMenuItem>
-                <DropdownMenuItem>Share</DropdownMenuItem>
-                <DropdownMenuItem>Download</DropdownMenuItem>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/photos/${photo.slug}`); }}>
+                  View details
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={(e) => {
+                  e.stopPropagation();
+                  const url = `${window.location.origin}/photos/${photo.slug}`;
+                  navigator.clipboard.writeText(url);
+                  toast.success("Link copied to clipboard");
+                }}>
+                  Copy link
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/photographers/${photo.user.username}`); }}>
+                  View photographer
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

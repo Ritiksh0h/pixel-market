@@ -25,8 +25,8 @@ export function LikeButton({ photoId, initialLiked, likeCount }: LikeButtonProps
 
     startTransition(async () => {
       const result = await toggleLikeAction(photoId);
-      if (result.error) {
-        toast.error(result.error);
+      if ("error" in result) {
+        toast.error(result.error as string);
         setLiked(liked);
         setCount(count);
       }

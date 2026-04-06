@@ -42,7 +42,7 @@ export function PurchasePanel({ photo, isOwner, isLoggedIn }: PurchasePanelProps
     if (!isLoggedIn) { toast.error("Please sign in to purchase"); return; }
     startTransition(async () => {
       const result = await createCheckoutAction(photo.id, selectedLicense, type);
-      if (result.error) toast.error(result.error);
+      if ("error" in result) toast.error(result.error as string);
       else if (result.url) window.location.href = result.url;
     });
   }
@@ -53,7 +53,7 @@ export function PurchasePanel({ photo, isOwner, isLoggedIn }: PurchasePanelProps
     if (isNaN(amount) || amount <= 0) { toast.error("Enter a valid bid amount"); return; }
     startTransition(async () => {
       const result = await placeBidAction(photo.id, amount);
-      if (result.error) toast.error(result.error);
+      if ("error" in result) toast.error(result.error as string);
       else { toast.success("Bid placed!"); setBidAmount(""); }
     });
   }

@@ -23,7 +23,7 @@ export function EditCollectionForm({ collection }: Props) {
     fd.append("collectionId", collection.id);
     startTransition(async () => {
       const result = await updateCollectionAction(fd);
-      if (result.error) toast.error(result.error);
+      if ("error" in result) toast.error(result.error as string);
       else {
         toast.success("Collection updated");
         setEditing(false);

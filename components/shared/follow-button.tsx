@@ -19,8 +19,8 @@ export function FollowButton({ userId, initialFollowing }: FollowButtonProps) {
     setFollowing(!following);
     startTransition(async () => {
       const result = await toggleFollowAction(userId);
-      if (result.error) {
-        toast.error(result.error);
+      if ("error" in result) {
+        toast.error(result.error as string);
         setFollowing(following);
       }
     });

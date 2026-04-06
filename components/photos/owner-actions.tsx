@@ -21,8 +21,8 @@ export function OwnerActions({ photoId, photoSlug, isPublished }: OwnerActionsPr
   function handleDelete() {
     startTransition(async () => {
       const result = await deletePhotoAction(photoId);
-      if (result.error) {
-        toast.error(result.error);
+      if ("error" in result) {
+        toast.error(result.error as string);
       } else {
         toast.success("Photo deleted");
         router.push("/dashboard");

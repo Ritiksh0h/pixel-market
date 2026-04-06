@@ -18,7 +18,9 @@ import { LikeButton } from "@/components/photos/like-button";
 import { CommentSection } from "@/components/photos/comment-section";
 import { PurchasePanel } from "@/components/photos/purchase-panel";
 import { OwnerActions } from "@/components/photos/owner-actions";
+import { ShareButton } from "@/components/photos/share-button";
 import { SaveToCollectionButton } from "@/components/collections/save-to-collection";
+import { FollowButton } from "@/components/shared/follow-button";
 
 export default async function PhotoPage({ params }: { params: { slug: string } }) {
   const photo = await getPhotoBySlug(params.slug);
@@ -83,9 +85,13 @@ export default async function PhotoPage({ params }: { params: { slug: string } }
                 </Link>
                 <p className="text-xs text-muted-foreground">@{photo.user.username}</p>
               </div>
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/photographers/${photo.user.username}`}>Profile</Link>
-              </Button>
+              {!isOwner ? (
+                <FollowButton userId={photo.userId} initialFollowing={photo.isFollowing} />
+              ) : (
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/photographers/${photo.user.username}`}>Profile</Link>
+                </Button>
+              )}
             </div>
 
             {/* Title + description */}
@@ -108,10 +114,7 @@ export default async function PhotoPage({ params }: { params: { slug: string } }
             <div className="flex items-center gap-2">
               <LikeButton photoId={photo.id} initialLiked={photo.isLiked} likeCount={photo.likeCount} />
               <SaveToCollectionButton photoId={photo.id} />
-              <Button variant="outline" size="sm">
-                <Share2 className="h-4 w-4 mr-1.5" />
-                Share
-              </Button>
+              <ShareButton title={photo.title} slug={photo.slug} />
             </div>
 
             {/* EXIF metadata */}

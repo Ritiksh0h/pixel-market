@@ -82,6 +82,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         },
       },
       from: process.env.EMAIL_FROM,
+      async sendVerificationRequest({ identifier: email, url, provider }) {
+        const { magicLinkEmail } = await import("@/lib/email-templates");
+        const { createTransport } = await import("nodemailer");
+        const transport = createTransport(provider.server as any);
+        await transport.sendMail({
+          to: email,
+          from: provider.from,
+          subject: "Sign in to PixelMarket",
+          html: magicLinkEmail(url),
+        });
+      },
     }),
     Credentials({
       name: "credentials",

@@ -51,8 +51,8 @@ export function SaveToCollectionButton({ photoId }: SaveToCollectionProps) {
 
     startTransition(async () => {
       const result = await togglePhotoInCollectionAction(collectionId, photoId);
-      if (result.error) {
-        toast.error(result.error);
+      if ("error" in result) {
+        toast.error(result.error as string);
         // Revert
         setCollections((prev) =>
           prev.map((c) =>
@@ -68,12 +68,12 @@ export function SaveToCollectionButton({ photoId }: SaveToCollectionProps) {
     const fd = new FormData(e.currentTarget);
     startTransition(async () => {
       const result = await createCollectionAction(fd);
-      if (result.error) {
-        toast.error(result.error);
+      if ("error" in result) {
+        toast.error(result.error as string);
       } else {
         // Add photo to new collection
-        if (result.id) {
-          await togglePhotoInCollectionAction(result.id, photoId);
+        if ("id" in result && result.id) {
+          await togglePhotoInCollectionAction((result as any).id, photoId);
         }
         toast.success("Created and saved!");
         setCreating(false);
