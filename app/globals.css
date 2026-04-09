@@ -84,17 +84,23 @@
     column-gap: 1rem;
   }
   @media (max-width: 1024px) {
-    .columns-masonry { column-count: 2; }
+    .columns-masonry {
+      column-count: 2;
+    }
   }
   @media (max-width: 640px) {
-    .columns-masonry { column-count: 1; }
+    .columns-masonry {
+      column-count: 1;
+    }
   }
 
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 
   .glass {
     @apply bg-background/80 backdrop-blur-xl border-b border-border;
@@ -109,11 +115,20 @@
 
   /* Shimmer placeholder for loading images */
   @keyframes shimmer {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
   }
   .img-shimmer {
-    background: linear-gradient(90deg, hsl(var(--muted)) 25%, hsl(var(--muted-foreground) / 0.08) 50%, hsl(var(--muted)) 75%);
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 25%,
+      hsl(var(--muted-foreground) / 0.08) 50%,
+      hsl(var(--muted)) 75%
+    );
     background-size: 200% 100%;
     animation: shimmer 1.5s ease-in-out infinite;
   }
