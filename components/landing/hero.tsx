@@ -1,10 +1,11 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import Link from "next/link"
 import { gsap } from "gsap"
 import { ScrollTrigger } from "gsap/ScrollTrigger"
 import { Button } from "@/components/ui/button"
-import { ChevronDown } from "lucide-react"
+import { ArrowRight, ChevronDown } from "lucide-react"
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -13,7 +14,6 @@ export function Hero() {
 
   useEffect(() => {
     const ctx = gsap.context(() => {
-      // Entrance animation
       gsap.from("[data-hero]", {
         y: 40,
         opacity: 0,
@@ -23,7 +23,6 @@ export function Hero() {
         delay: 0.2,
       })
 
-      // Parallax background zoom on scroll
       gsap.to("[data-hero-bg]", {
         scale: 1.15,
         scrollTrigger: {
@@ -34,7 +33,6 @@ export function Hero() {
         },
       })
 
-      // Text fades out + shifts up on scroll
       gsap.to("[data-hero-content]", {
         opacity: 0,
         y: -60,
@@ -46,15 +44,27 @@ export function Hero() {
         },
       })
 
-      // Overlay darkens on scroll
       gsap.to("[data-hero-overlay]", {
-        opacity: 0.9,
+        opacity: 0.95,
         scrollTrigger: {
           trigger: heroRef.current,
           start: "30% top",
           end: "bottom top",
           scrub: 1,
         },
+      })
+
+      // Floating orbs
+      gsap.utils.toArray<HTMLElement>("[data-orb]").forEach((orb, i) => {
+        gsap.to(orb, {
+          y: `random(-40, 40)`,
+          x: `random(-30, 30)`,
+          duration: `random(4, 7)`,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut",
+          delay: i * 0.5,
+        })
       })
     }, heroRef)
 
@@ -75,6 +85,19 @@ export function Hero() {
       />
       <div data-hero-overlay className="absolute inset-0 bg-background/70" />
 
+      {/* Floating orbs for depth */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div data-orb className="absolute top-[15%] left-[10%] w-64 h-64 rounded-full bg-primary/5 blur-3xl" />
+        <div data-orb className="absolute top-[60%] right-[15%] w-80 h-80 rounded-full bg-primary/3 blur-3xl" />
+        <div data-orb className="absolute bottom-[20%] left-[40%] w-48 h-48 rounded-full bg-primary/4 blur-3xl" />
+        <div data-orb className="absolute top-[30%] right-[30%] w-32 h-32 rounded-full bg-primary/6 blur-2xl" />
+      </div>
+
+      {/* Grain */}
+      <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
+        style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }}
+      />
+
       <div data-hero-content className="relative z-10 text-center px-6 max-w-4xl mx-auto will-change-transform">
         <p data-hero className="text-sm uppercase tracking-[0.3em] text-muted-foreground mb-8">
           The Premium Photography Marketplace
@@ -91,15 +114,19 @@ export function Hero() {
         </p>
 
         <div data-hero className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Button size="lg" className="px-8 py-6 text-base">
-            Start Selling
+          <Button size="lg" className="px-8 py-6 text-base" asChild>
+            <Link href="/signup">
+              Start Selling
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
           </Button>
           <Button
             variant="outline"
             size="lg"
             className="px-8 py-6 text-base border-muted-foreground/30 hover:bg-secondary"
+            asChild
           >
-            Explore Gallery
+            <Link href="/login">Explore Gallery</Link>
           </Button>
         </div>
       </div>

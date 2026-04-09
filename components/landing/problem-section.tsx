@@ -18,7 +18,6 @@ export function ProblemSection() {
 
   useEffect(() => {
     const ctx = gsap.context(() => {
-      // Per-line scrub reveal
       gsap.utils.toArray<HTMLElement>("[data-problem-line]").forEach((el) => {
         gsap.from(el, {
           scrollTrigger: {
@@ -32,7 +31,6 @@ export function ProblemSection() {
         });
       });
 
-      // Background parallax — once, outside the loop
       gsap.to("[data-problem-bg]", {
         scale: 1.15,
         scrollTrigger: {
@@ -59,13 +57,22 @@ export function ProblemSection() {
           backgroundImage: `url('https://images.unsplash.com/photo-1743653537429-a94889a6fd47?q=80&w=2944')`,
         }}
       />
-      <div className="absolute inset-0 bg-background/80" />
+      <div className="absolute inset-0 bg-background/85" />
+
+      {/* Subtle grid pattern */}
+      <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
+        style={{
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+          backgroundSize: "60px 60px",
+        }}
+      />
+
       <div className="relative z-10 max-w-3xl mx-auto text-center space-y-8">
         {problemLines.map((line, index) => (
           <p
             key={index}
             data-problem-line
-            className={`text-2xl md:text-4xl lg:text-3xl leading-tight ${
+            className={`text-2xl md:text-3xl lg:text-4xl leading-tight ${
               index === problemLines.length - 1
                 ? "text-muted-foreground"
                 : "text-foreground"
